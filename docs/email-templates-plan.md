@@ -210,3 +210,7 @@ deployment** (`clasp push`, then Deploy › Test deployments › Install in Gmai
   `GmailApp.createDraft`, which is the approach Google documents for compose
   actions. If drafting fails with an authorization error, add
   `https://www.googleapis.com/auth/gmail.compose` to `oauthScopes`.
+- **Send button** (added after the first test): sits next to Open draft and
+  sends straight away with `MailApp.sendEmail`, which needs the
+  `script.send_mail` scope. It saves to Drive first, the same as Open draft.
+  Save as template and Manage templates are each on their own row below it.

@@ -17,8 +17,36 @@ function onUseFormChange(e) {
 
 /** Saves the ticked attachments to Drive (if asked) and opens the draft. */
 function onOpenDraft(e) {
+  const email = prepareEmail_(e);
+  // A compose response can't carry a notification, so the Drive summary is
+  // shown at the top of the send panel the next time it is built.
+  if (email.driveSummary) putLastResult_(email.driveSummary.html);
+  const draft = GmailApp.createDraft(email.to, email.subject, email.body, email.options);
+  return CardService.newComposeActionResponseBuilder().setGmailDraft(draft).build();
+}
+
+/** Saves the ticked attachments to Drive (if asked) and sends the email straight away. */
+function onSendNow(e) {
+  let email;
+  try {
+    email = prepareEmail_(e);
+  } catch (err) {
+    return notify_(err.message);
+  }
+  MailApp.sendEmail(email.to, email.subject, email.body, email.options);
+  let text = 'Sent to ' + email.to + '.';
+  if (email.driveSummary) text += ' ' + email.driveSummary.text;
+  return notify_(text);
+}
+
+/**
+ * Reads the send panel, saves the ticked attachments to Drive if asked, and
+ * returns { to, subject, body, options, driveSummary } ready to draft or send.
+ * Throws an Error with a user-facing message if something is missing.
+ */
+function prepareEmail_(e) {
   const state = stateFromForm_(e);
-  if (!state.to) throw new Error('Add a To address before opening the draft.');
+  if (!state.to) throw new Error('Add a To address first.');
 
   const attachments = getAttachments_(getOpenMessage_(e));
   const blobs = state.attachments
@@ -26,17 +54,15 @@ function onOpenDraft(e) {
     .filter(Boolean)
     .map((attachment) => attachment.copyBlob());
 
-  // A compose response can't carry a notification, so the Drive summary is
-  // shown at the top of the send panel the next time it is built.
+  let driveSummary = null;
   if (state.saveToDrive === true && blobs.length) {
     const folder = resolveTargetFolder_(state);
-    putLastResult_(describeSave_(folder, saveBlobsToFolder_(folder, blobs)));
+    driveSummary = describeSave_(folder, saveBlobsToFolder_(folder, blobs));
   }
 
   const options = { attachments: blobs };
   if (state.cc) options.cc = state.cc;
-  const draft = GmailApp.createDraft(state.to, state.subject, state.body, options);
-  return CardService.newComposeActionResponseBuilder().setGmailDraft(draft).build();
+  return { to: state.to, subject: state.subject, body: state.body, options: options, driveSummary: driveSummary };
 }
 
 function onSaveAsTemplate(e) {
@@ -65,18 +91,18 @@ function resolveTargetFolder_(state) {
   return sub;
 }
 
+/** The Drive save result as { text } for notifications and { html } (with a folder link) for the banner. */
 function describeSave_(folder, result) {
-  const link = '<a href="' + folderUrl_(folder.getId()) + '">' + escapeHtml_(folder.getName()) + '</a>';
-  let html = 'Saved ' + plural_(result.saved.length, 'file') + ' to ' + link + '.';
-  if (result.skipped.length) {
-    html +=
-      ' Skipped ' +
-      plural_(result.skipped.length, 'file') +
-      ' already there: ' +
-      escapeHtml_(result.skipped.join(', ')) +
-      '.';
-  }
-  return html;
+  const name = folder.getName();
+  const link = '<a href="' + folderUrl_(folder.getId()) + '">' + escapeHtml_(name) + '</a>';
+  const saved = 'Saved ' + plural_(result.saved.length, 'file') + ' to ';
+  const skipped = result.skipped.length
+    ? ' Skipped ' + plural_(result.skipped.length, 'file') + ' already there: ' + result.skipped.join(', ') + '.'
+    : '';
+  return {
+    text: saved + name + '.' + skipped,
+    html: saved + link + '.' + escapeHtml_(skipped),
+  };
 }
 
 function plural_(n, word) {

@@ -121,8 +121,9 @@ function buildDriveSection_(state, rootFolderId, rootFolder, onChange) {
   return section;
 }
 
+/** Three rows: Open draft + Send, then Save as template, then Manage templates. */
 function buildUseButtons_(params) {
-  const buttons = CardService.newButtonSet()
+  const sendRow = CardService.newButtonSet()
     .addButton(
       CardService.newTextButton()
         .setText('Open draft')
@@ -131,11 +132,17 @@ function buildUseButtons_(params) {
     )
     .addButton(
       CardService.newTextButton()
-        .setText('Save as template')
-        .setOnClickAction(action_('onSaveAsTemplate', params))
-    )
-    .addButton(
-      CardService.newTextButton().setText('Manage templates').setOnClickAction(action_('onManageTemplates'))
+        .setText('Send')
+        .setTextButtonStyle(CardService.TextButtonStyle.FILLED)
+        .setOnClickAction(action_('onSendNow', params))
     );
-  return CardService.newCardSection().addWidget(buttons);
+  const saveRow = CardService.newButtonSet().addButton(
+    CardService.newTextButton()
+      .setText('Save as template')
+      .setOnClickAction(action_('onSaveAsTemplate', params))
+  );
+  const manageRow = CardService.newButtonSet().addButton(
+    CardService.newTextButton().setText('Manage templates').setOnClickAction(action_('onManageTemplates'))
+  );
+  return CardService.newCardSection().addWidget(sendRow).addWidget(saveRow).addWidget(manageRow);
 }
